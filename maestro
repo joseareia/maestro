@@ -13,6 +13,8 @@ BOLD="\e[1m"
 ULINE="\e[4m"
 RESET="\e[0m"
 
+VERSION="1.1.0"
+
 help() {
     cat << "EOF"
     __  ___                __
@@ -23,13 +25,23 @@ help() {
 
 EOF
 
-    echo -e "${GREEN}Maestro${RESET} version ${BROWN}1.0.2${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
-    echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options]"
+    echo -e "${GREEN}Maestro${RESET} version ${BROWN}$VERSION${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
+    echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options] [arguments]"
     echo -e "\n${BROWN}Options:${RESET}"
-    echo -e "  ${GREEN}-h, --help${RESET}\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
-    echo -e "  ${GREEN}-c, --create-token${RESET}\t Create a new bearer token for the default kubernetes account"
-    echo -e "  ${GREEN}-r, --retrieve-token${RESET}\t Retrieve the existing bearer token for the default kubernetes account"
-    echo -e "  ${GREEN}-p, --permissions${RESET}\t Grant the necessary permissions for the default kubernetes user to access the REST API"
+    echo -e "  ${GREEN}-h, --help${RESET}\t\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
+    echo -e "  ${GREEN}-c, --create-token${RESET}\t\t Create a new bearer token for the default kubernetes account"
+    echo -e "  ${GREEN}-r, --retrieve-token${RESET}\t\t Retrieve the existing bearer token for the default kubernetes account"
+    echo -e "  ${GREEN}-p, --permissions${RESET}\t\t Grant the necessary permissions for the default kubernetes user to access the REST API"
+    echo -e "  ${GREEN}-m, --master-node [name]${RESET}\t Create a k3s master node with a dynamic name passed through an argument"
+    echo -e "\n${BROWN}Available commands:${RESET}"
+    echo -e "  ${GREEN}about${RESET}\t\t\t\t Shows a short information about Maestro"
+    echo -e "  ${GREEN}list${RESET}\t\t\t\t List all the commands and usefull information"
+}
+
+about() {
+    echo -e "${GREEN}Maestro - Kubernetes Assistant - version $VERSION${RESET}"
+    echo -e "${BROWN}Maestro is a tool designed to assist users in configuring their Kubernetes accounts.${RESET}"
+    echo -e "${BROWN}See https://github.com/joseareia/maestro for more information."
 }
 
 if [[ ! -n "$1" ]]; then
@@ -40,10 +52,18 @@ fi
 create_token=false
 retrieve_token=false
 permissions=false
+master_node_flag=false
+master_node_name=""
 
 # Process options
 while [[ $# -gt 0 ]]; do
     case $1 in
+        'about')
+            about
+            ;;
+        'list')
+            help
+            ;;
         --help | -h)
             help
             ;;
@@ -56,6 +76,11 @@ while [[ $# -gt 0 ]]; do
         --permissions | -p)
             permissions=true
             ;;
+        --master-node | -m)
+            shift
+            master_node_flag=true
+            master_node_name=$1
+            ;;
         *)
             echo -e "\n  ${RED_BG} ERROR ${RESET} The option \"$1\" does not exist. \n" >&2 && exit 1
             ;;
@@ -63,7 +88,27 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# Handle the chosen options
+if $master_node_flag; then
+    if [ ! -z "$master_node_name" ]; then
+        if [ ! "$UID" -eq 0 ]; then
+            echo -e "\n  ${RED_BG} ERROR ${RESET} You must run this option with sudo.\n" >&2 ; exit 1
+        else
+            echo -ne "\n  ${BLUE_BG} INFO ${RESET} We are creating a node master for you...\r" >&2
+
+            curl -sfL https://get.k3s.io | sh -s - --disable traefik --write-kubeconfig-mode 644 --node-name $master_node_name > /dev/null 2>&1
+            error_code=$?
+
+            if [ $error_code -ne 0  ]; then
+                echo -ne "  ${RED_BG} ERROR ${RESET} There was an error while creating the node master. (Code: $error_code) \r" >&2 ; echo -ne '\n\n' ; exit 1
+            else
+                echo -ne "  ${BLUE_BG} INFO ${RESET} The node master '$master_node_name' was created with success.\r" >&2 ; echo -ne '\n\n'
+            fi
+        fi
+    else
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide a name to the master node. \n" >&2 ; exit 1
+    fi
+fi
+
 if $create_token; then
     kubectl > /dev/null 2>&1
     error_code=$?
@@ -82,9 +127,9 @@ if $create_token; then
         apiVersion: v1
         kind: Secret
         metadata:
-        name: default-token
-        annotations:
-        kubernetes.io/service-account.name: default
+          name: default-token
+          annotations:
+            kubernetes.io/service-account.name: default
         type: kubernetes.io/service-account-token
 EOF
         error_code=$?
@@ -116,7 +161,7 @@ if $retrieve_token; then
         echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while getting the bearer token. (Code: $error_code) \n" >&2
     else
         echo -e "\n  ${BLUE_BG} INFO ${RESET} The token was retrieved with success. Copy the token below. \n"
-        kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode ; echo "\n"
+        kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode ; echo " "
     fi
 fi
 
