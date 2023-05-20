@@ -161,7 +161,7 @@ if $retrieve_token; then
         echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while getting the bearer token. (Code: $error_code) \n" >&2
     else
         echo -e "\n  ${BLUE_BG} INFO ${RESET} The token was retrieved with success. Copy the token below. \n"
-        kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode ; echo " "
+        kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode ; echo -e "\n"
     fi
 fi
 
