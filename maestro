@@ -1,0 +1,120 @@
+#!/bin/bash
+
+# Color codes
+RED="\e[0;31m"
+BLUE="\e[0;94m"
+BLUE_BG="\033[0;37;44m"
+RED_BG="\033[0;37;41m"
+GREEN_BG="\e[0;102m"
+GREEN="\e[0;32m"
+BROWN="\e[0;33m"
+WHITE="\e[0;97m"
+BOLD="\e[1m"
+ULINE="\e[4m"
+RESET="\e[0m"
+
+help() {
+    cat << "EOF"
+        __  ___                __
+       /  |/  /___ ____  _____/ /__________
+      / /|_/ / __ `/ _ \/ ___/ __/ ___/ __ \
+     / /  / / /_/ /  __(__  ) /_/ /  / /_/ /
+    /_/  /_/\__,_/\___/____/\__/_/   \____/
+
+EOF
+
+    echo -e "${GREEN}Maestro${RESET} version ${BROWN}0.0.1${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
+    echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options]"
+    echo -e "\n${BROWN}Options:${RESET}"
+    echo -e "  ${GREEN}-h, --help${RESET}\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
+    echo -e "  ${GREEN}-c, --create-token${RESET}\t Create a new bearer token for the default kubernetes account"
+    echo -e "  ${GREEN}-r, --retrieve-token${RESET}\t Retrieve the existing bearer token for the default kubernetes account"
+    echo -e "  ${GREEN}-p, --permissions${RESET}\t Grant the necessary permissions for the default kubernetes user to access the REST API"
+}
+
+if [[ ! -n "$1" ]]; then
+    help
+fi
+
+# Default values
+create_token=false
+retrieve_token=false
+permissions=false
+
+# Process options
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --help | -h)
+            help
+            ;;
+        --create-token | -c)
+            create_token=true
+            ;;
+        --retrieve-token | -r)
+            retrieve_token=true
+            ;;
+        --permissions | -p)
+            permissions=true
+            ;;
+        *)
+            echo -e "\n  ${RED_BG} ERROR ${RESET} The option \"$1\" does not exist. \n" >&2 && exit 1
+            ;;
+    esac
+    shift
+done
+
+# Handle the chosen options
+if $create_token; then
+    # Get the cluster server name and export it to the variable CLUSTER_NAME
+    export CLUSTER_NAME=$(kubectl config view -o jsonpath='{range .clusters[*]}{.name}{"\n"}{end}')
+
+    # Point to the API server referring the cluster name
+    APISERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER_NAME\")].cluster.server}")
+
+    # Create a secret to hold a token for the default service account
+    kubectl apply -f - << EOF
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: default-token
+      annotations:
+        kubernetes.io/service-account.name: default
+    type: kubernetes.io/service-account-token
+EOF
+
+    # Wait for the token controller to populate the secret with a token:
+    while ! kubectl describe secret default-token | grep -E '^token' >/dev/null; do
+      echo "waiting for token..." >&2
+      sleep 1
+    done
+
+    # Get the token value
+    TOKEN=$(kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode)
+
+    echo -e "\n  ${BLUE_BG} INFO ${RESET} Bearer token created with success. Run with \"-r\" to view the token. \n"
+fi
+
+if $retrieve_token; then
+    kubectl get secret default-token -o jsonpath='{.data.token}' > /dev/null 2>&1
+    error_code=$?
+
+    if [ $error_code -ne 0 ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while getting the bearer token. (Code: $error_code) \n" >&2
+    else
+        echo -e "\n  ${BLUE_BG} INFO ${RESET} The token was retrieved with success. Copy the token below. \n"
+        kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode ; echo "\n"
+    fi
+fi
+
+if $permissions; then
+    kubectl create clusterrolebinding default-admin --clusterrole=cluster-admin --serviceaccount=default:default > /dev/null 2>&1
+    error_code=$?
+
+    if [ $error_code -eq 1 ]; then
+        echo -e "\n  ${BLUE_BG} INFO ${RESET} The permissions were already granted. \n" >&2
+    elif [ $error_code -ne 0 ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error granting the permissions. (Code: $error_code) \n" >&2
+    else
+        echo -e "\n  ${BLUE_BG} INFO ${RESET} The permissions were granted successfully. \n" >&2
+    fi
+fi
