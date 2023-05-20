@@ -13,7 +13,7 @@ BOLD="\e[1m"
 ULINE="\e[4m"
 RESET="\e[0m"
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 
 help() {
     cat << "EOF"
