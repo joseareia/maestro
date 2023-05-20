@@ -23,7 +23,7 @@ help() {
 
 EOF
 
-    echo -e "${GREEN}Maestro${RESET} version ${BROWN}1.0.1${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
+    echo -e "${GREEN}Maestro${RESET} version ${BROWN}1.0.2${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
     echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options]"
     echo -e "\n${BROWN}Options:${RESET}"
     echo -e "  ${GREEN}-h, --help${RESET}\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
@@ -89,7 +89,9 @@ if $create_token; then
 EOF
         error_code=$?
 
-        if [ $error_code -ne 0 ]; then
+        if [ $error_code -eq 1 ]; then
+            echo -e "\n  ${BLUE_BG} INFO ${RESET} The bearer token was created already. Nothing changed.\n" >&2 ; exit 1
+        elif [ $error_code -ne 0 ]; then
             echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while creating the bearer token. (Code: $error_code) \n" >&2 ; exit 1
         else
             # Wait for the token controller to populate the secret with a token:
