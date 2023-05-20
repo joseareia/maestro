@@ -15,15 +15,15 @@ RESET="\e[0m"
 
 help() {
     cat << "EOF"
-        __  ___                __
-       /  |/  /___ ____  _____/ /__________
-      / /|_/ / __ `/ _ \/ ___/ __/ ___/ __ \
-     / /  / / /_/ /  __(__  ) /_/ /  / /_/ /
-    /_/  /_/\__,_/\___/____/\__/_/   \____/
+    __  ___                __
+   /  |/  /___ ____  _____/ /__________
+  / /|_/ / __ `/ _ \/ ___/ __/ ___/ __ \
+ / /  / / /_/ /  __(__  ) /_/ /  / /_/ /
+/_/  /_/\__,_/\___/____/\__/_/   \____/
 
 EOF
 
-    echo -e "${GREEN}Maestro${RESET} version ${BROWN}0.0.1${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
+    echo -e "${GREEN}Maestro${RESET} version ${BROWN}1.0.1${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
     echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options]"
     echo -e "\n${BROWN}Options:${RESET}"
     echo -e "  ${GREEN}-h, --help${RESET}\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
@@ -65,33 +65,45 @@ done
 
 # Handle the chosen options
 if $create_token; then
-    # Get the cluster server name and export it to the variable CLUSTER_NAME
-    export CLUSTER_NAME=$(kubectl config view -o jsonpath='{range .clusters[*]}{.name}{"\n"}{end}')
+    kubectl > /dev/null 2>&1
+    error_code=$?
 
-    # Point to the API server referring the cluster name
-    APISERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER_NAME\")].cluster.server}")
+    if [ $error_code -ne 0  ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while creating the bearer token. (Code: $error_code) \n" >&2 ; exit 1
+    else
+        # Get the cluster server name and export it to the variable CLUSTER_NAME
+        export CLUSTER_NAME=$(kubectl config view -o jsonpath='{range .clusters[*]}{.name}{"\n"}{end}')
 
-    # Create a secret to hold a token for the default service account
-    kubectl apply -f - << EOF
-    apiVersion: v1
-    kind: Secret
-    metadata:
-      name: default-token
-      annotations:
+        # Point to the API server referring the cluster name
+        APISERVER=$(kubectl config view -o jsonpath="{.clusters[?(@.name==\"$CLUSTER_NAME\")].cluster.server}")
+
+        # Create a secret to hold a token for the default service account
+        kubectl apply -f - << EOF > /dev/null 2>&1
+        apiVersion: v1
+        kind: Secret
+        metadata:
+        name: default-token
+        annotations:
         kubernetes.io/service-account.name: default
-    type: kubernetes.io/service-account-token
+        type: kubernetes.io/service-account-token
 EOF
+        error_code=$?
 
-    # Wait for the token controller to populate the secret with a token:
-    while ! kubectl describe secret default-token | grep -E '^token' >/dev/null; do
-      echo "waiting for token..." >&2
-      sleep 1
-    done
+        if [ $error_code -ne 0 ]; then
+            echo -e "\n  ${RED_BG} ERROR ${RESET} There was an error while creating the bearer token. (Code: $error_code) \n" >&2 ; exit 1
+        else
+            # Wait for the token controller to populate the secret with a token:
+            while ! kubectl describe secret default-token | grep -E '^token' >/dev/null; do
+                echo "waiting for token..." >&2
+                sleep 1
+            done
 
-    # Get the token value
-    TOKEN=$(kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode)
+            # Get the token value
+            TOKEN=$(kubectl get secret default-token -o jsonpath='{.data.token}' | base64 --decode)
 
-    echo -e "\n  ${BLUE_BG} INFO ${RESET} Bearer token created with success. Run with \"-r\" to view the token. \n"
+            echo -e "\n  ${BLUE_BG} INFO ${RESET} Bearer token created with success. Run with \"-r\" to view the token. \n"
+        fi
+    fi
 fi
 
 if $retrieve_token; then
