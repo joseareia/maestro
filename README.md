@@ -36,38 +36,19 @@ In the section below you can find all the options and available commands that Ma
 
 ### Available options
 
-```bash
--h, --help
-    Display help for the given command. When no command is specified, it displays help for the list command.
+- `-h, --help` to display help for the given command. When no command is specified, it displays help for the list command.
+- `-c, --create-token` to create a new bearer token for the default Kubernetes account.
+- `-r, --retrieve-token` to retrieve the existing bearer token for the default Kubernetes account.
+- `-p, --permissions` to grant the necessary permissions for the default Kubernetes user to access the REST API.
+- `-m, --master-token` to retrieve the existing master token for the current node master.
 
--c, --create-token
-    Create a new bearer token for the default Kubernetes account.
-
--r, --retrieve-token
-    Retrieve the existing bearer token for the default Kubernetes account.
-
--p, --permissions
-    Grant the necessary permissions for the default Kubernetes user to access the REST API.
-
--m, --master-token
-    Retrieve the existing master token for the current node master.
-```
 
 ### Available commands
 
-```bash
-about
-    Shows a short information about Maestro.
-
-list
-    Lists all the commands and useful information.
-
-master
-    Creates a k3s master node with a given name.
-
-worker
-    Creates a k3s worker node with a given name, master node address, and token.
-```
+- `about` to show a short information about Maestro.
+- `list` to list all the commands and useful information.
+- `master` to create a k3s master node with a given name.
+- `worker` to create a k3s worker node with a given name, master node address, and token.
 
 Maestro simplifies Kubernetes management by providing an intuitive interface to perform common tasks. It automates repetitive operations and helps you save time and effort in administering your Kubernetes cluster. With Maestro, you can focus on developing and deploying applications without getting bogged down by complex Kubernetes configurations.
 
