@@ -3,6 +3,13 @@
 
 Maestro is a powerful Bash script designed to streamline various Kubernetes operations and facilitate management tasks. It provides a set of options and commands to simplify the configuration and administration of your Kubernetes cluster. Whether you need to create tokens, grant permissions, retrieve information, or create and manage master and worker nodes, Maestro has got you covered.
 
+## Prerequisites
+
+Before using Maestro, ensure that you have the following:
+
+- A working Bash environment.
+- Access to a Kubernetes cluster with the necessary privileges.
+
 
 ## Installation
 
@@ -10,13 +17,13 @@ You can install this script globally in your machine by doing the following. In 
 
 ```bash
   wget https://github.com/joseareia/maestro/archive/refs/tags/v1.2.1.tar.gz
-  tar -xvf v1.2.1.tar.gz & cd maestro-1.2.1 
+  tar -xvf v1.2.1.tar.gz & cd maestro-1.2.1
   sudo chmod +x maestro.sh
   mv maestro.sh /usr/local/bin/maestro
 ```
 
 After following the steps above, Maestro is ready to use globally in your machine.
-    
+
 ## Usage
 
 Using Maestro is simple. You just need to run the script with the options that you want. Below is an example of you can use it for creating a K3S master node.
@@ -62,7 +69,7 @@ worker
     Creates a k3s worker node with a given name, master node address, and token.
 ```
 
-
+Maestro simplifies Kubernetes management by providing an intuitive interface to perform common tasks. It automates repetitive operations and helps you save time and effort in administering your Kubernetes cluster. With Maestro, you can focus on developing and deploying applications without getting bogged down by complex Kubernetes configurations.
 
 
 ## Contributing
@@ -73,4 +80,3 @@ Contributions to Maestro are welcome! If you encounter any issues, have suggesti
 ## License
 
 This project is under the [GNU GPLv3](https://choosealicense.com/licenses/gpl-3.0/) license.
-
