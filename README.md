@@ -17,7 +17,7 @@ You can install this script globally in your machine by doing the following. In 
 
 ```bash
   wget https://github.com/joseareia/maestro/archive/refs/tags/v1.2.1.tar.gz
-  tar -xvf v1.2.1.tar.gz & cd maestro-1.2.1
+  tar -xvf v1.2.1.tar.gz ; cd maestro-1.2.1
   sudo chmod +x maestro
   mv maestro /usr/local/bin/maestro
 ```
