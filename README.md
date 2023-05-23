@@ -29,7 +29,7 @@ After following the steps above, Maestro is ready to use globally in your machin
 Using Maestro is simple. You just need to run the script with the options that you want. Below is an example of you can use it for creating a K3S master node.
 
 ```bash
-maestro master -n my-master-node
+  maestro master -n my-master-node
 ```
 
 In the section below you can find all the options and available commands that Maestro can offer you.
