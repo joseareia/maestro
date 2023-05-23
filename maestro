@@ -13,7 +13,7 @@ BOLD="\e[1m"
 ULINE="\e[4m"
 RESET="\e[0m"
 
-VERSION="1.1.1"
+VERSION="1.2.1"
 
 help() {
     cat << "EOF"
@@ -25,17 +25,19 @@ help() {
 
 EOF
 
-    echo -e "${GREEN}Maestro${RESET} version ${BROWN}$VERSION${RESET} $(date +'%Y-%m-%d %H-%m-%S')"
+    echo -e "${GREEN}Maestro${RESET} version ${BROWN}$VERSION${RESET} $(date +'%Y-%m-%d %H:%m:%S')"
     echo -e "\n${BROWN}Usage:${RESET}\n  maestro [options] [arguments]"
     echo -e "\n${BROWN}Options:${RESET}"
     echo -e "  ${GREEN}-h, --help${RESET}\t\t\t Display help for the given command. When no command is given display help for the ${GREEN}list${RESET} command"
     echo -e "  ${GREEN}-c, --create-token${RESET}\t\t Create a new bearer token for the default kubernetes account"
     echo -e "  ${GREEN}-r, --retrieve-token${RESET}\t\t Retrieve the existing bearer token for the default kubernetes account"
     echo -e "  ${GREEN}-p, --permissions${RESET}\t\t Grant the necessary permissions for the default kubernetes user to access the REST API"
-    echo -e "  ${GREEN}-m, --master-node [name]${RESET}\t Create a k3s master node with a dynamic name passed through an argument"
+    echo -e "  ${GREEN}-m, --master-token${RESET}\t\t Retrieve the existing master token for the current node master"
     echo -e "\n${BROWN}Available commands:${RESET}"
     echo -e "  ${GREEN}about${RESET}\t\t\t\t Shows a short information about Maestro"
     echo -e "  ${GREEN}list${RESET}\t\t\t\t List all the commands and usefull information"
+    echo -e "  ${GREEN}master${RESET}\t\t\t Create a k3s master node with a given name"
+    echo -e "  ${GREEN}worker${RESET}\t\t\t Create a k3s worker node with a given name, master node address and token"
 }
 
 about() {
@@ -52,8 +54,12 @@ fi
 create_token=false
 retrieve_token=false
 permissions=false
-master_node_flag=false
-master_node_name=""
+master_token=false
+master_flag=false
+worker_flag=false
+name=""                 # For both "master" and "worker" commands
+ip=""                   # For the "worker" command
+token=""                # For the "worker" command
 
 # Process options
 while [[ $# -gt 0 ]]; do
@@ -63,6 +69,12 @@ while [[ $# -gt 0 ]]; do
             ;;
         'list')
             help
+            ;;
+        'master')
+            master_flag=true
+            ;;
+        'worker')
+            worker_flag=true
             ;;
         --help | -h)
             help
@@ -76,10 +88,20 @@ while [[ $# -gt 0 ]]; do
         --permissions | -p)
             permissions=true
             ;;
-        --master-node | -m)
+        --master-token | -m)
+            master_token=true
+            ;;
+        --name | -n)
             shift
-            master_node_flag=true
-            master_node_name=$1
+            name=$1         # For both "master" and "worker" commands
+            ;;
+        --ip | -i)
+            shift
+            ip=$1           # For the "worker" command
+            ;;
+        --token | -t)
+            shift
+            token=$1        # For the "worker" command
             ;;
         *)
             echo -e "\n  ${RED_BG} ERROR ${RESET} The option \"$1\" does not exist. \n" >&2 && exit 1
@@ -88,27 +110,84 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-if $master_node_flag; then
-    if [ ! -z "$master_node_name" ]; then
+# Creates a new master node: ./maestro master [-n | --name NAME]
+if $master_flag; then
+    if [ ! -z "$name" ]; then
         if [ ! "$UID" -eq 0 ]; then
             echo -e "\n  ${RED_BG} ERROR ${RESET} You must run this option with sudo.\n" >&2 ; exit 1
         else
             echo -ne "\n  ${BLUE_BG} INFO ${RESET} We are creating a node master for you...\r" >&2
 
-            curl -sfL https://get.k3s.io | sh -s - --disable traefik --write-kubeconfig-mode 644 --node-name $master_node_name > /dev/null 2>&1
+            curl -sfL https://get.k3s.io | sh -s - --disable traefik --write-kubeconfig-mode 644 --node-name $name > /dev/null 2>&1
             error_code=$?
 
             if [ $error_code -ne 0  ]; then
                 echo -ne "  ${RED_BG} ERROR ${RESET} There was an error while creating the node master. (Code: $error_code) \r" >&2 ; echo -ne '\n\n' ; exit 1
             else
-                echo -ne "  ${BLUE_BG} INFO ${RESET} The node master '$master_node_name' was created with success.\r" >&2 ; echo -ne '\n\n'
+                echo -ne "  ${BLUE_BG} INFO ${RESET} The node master '$name' was created with success.\r" >&2 ; echo -ne '\n\n'
             fi
         fi
     else
-        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide a name to the master node. \n" >&2 ; exit 1
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide a name to the master node. \n" >&2
+        echo -e "  ${GREEN}master [-n|--name NAME]\n"
+        exit 1
     fi
 fi
 
+# Creates a new master node: ./maestro worker [-n | --name NAME] [-i | --ip IP ADDRESS] [-t | --token TOKEN]
+if $worker_flag; then
+    if [ -z "$name" ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide a name to the worker node. \n" >&2
+        echo -e "  ${GREEN}worker [-n|--name NAME] [-i|--ip IP ADDRESS] [-t|--token TOKEN]\n"
+        exit 1
+    fi
+
+    if [ -z "$ip" ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide the IP address of the master node. \n" >&2
+        echo -e "  ${GREEN}worker [-n|--name NAME] [-i|--ip IP ADDRESS] [-t|--token TOKEN]\n"
+        exit 1
+    fi
+
+    if [ -z "$token" ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide the token of the master node. Use the \"-t\" option to retrieve it. \n" >&2
+        echo -e "  ${GREEN}worker [-n|--name NAME] [-i|--ip IP ADDRESS] [-t|--token TOKEN]\n"
+        exit 1
+    fi
+
+    if [ ! "$UID" -eq 0 ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must run this option with sudo.\n" >&2 ; exit 1
+    fi
+
+    echo -ne "\n  ${BLUE_BG} INFO ${RESET} We are creating a worker node for you...\r" >&2
+
+    curl -sfL https://get.k3s.io | K3S_NODE_NAME=$name K3S_URL=https://$ip:6443 K3S_TOKEN=$token sh - > /dev/null 2>&1
+    error_code=$?
+
+    if [ $error_code -ne 0  ]; then
+        echo -ne "  ${RED_BG} ERROR ${RESET} There was an error while creating the worker node. (Code: $error_code) \r" >&2 ; echo -ne '\n\n' ; exit 1
+    else
+        echo -ne "  ${BLUE_BG} INFO ${RESET} The worker node '$name' was created with success.\r" >&2 ; echo -ne '\n\n'
+    fi
+fi
+
+# Retrieves the master token: ./maestro [-t | --master_token]
+if $master_token; then
+    if [ ! "$UID" -eq 0 ]; then
+        echo -e "\n  ${RED_BG} ERROR ${RESET} You must run this option with sudo.\n" >&2 ; exit 1
+    else
+        cat /var/lib/rancher/k3s/server/node-token > /dev/null 2>&1
+        error_code=$?
+
+        if [ $error_code -ne 0  ]; then
+            echo -ne "\n  ${RED_BG} ERROR ${RESET} There was an error while retrieving the master token. (Code: $error_code)" >&2 ; echo -ne '\n\n' ; exit 1
+        else
+            MASTERTOKEN=$(cat /var/lib/rancher/k3s/server/node-token)
+            echo -ne "\n  ${BLUE_BG} INFO ${RESET} Master token: $MASTERTOKEN" >&2 ; echo -ne '\n\n'
+        fi
+    fi
+fi
+
+# Creates a new master token: ./maestro [-c | --create_token]
 if $create_token; then
     kubectl > /dev/null 2>&1
     error_code=$?
@@ -153,6 +232,7 @@ EOF
     fi
 fi
 
+# Retrieve the master token for API access: ./maestro [-r | --retrieve_token]
 if $retrieve_token; then
     kubectl get secret default-token -o jsonpath='{.data.token}' > /dev/null 2>&1
     error_code=$?
@@ -165,6 +245,7 @@ if $retrieve_token; then
     fi
 fi
 
+# Grant permissions for API access: ./maestro [-p | --permissions]
 if $permissions; then
     kubectl create clusterrolebinding default-admin --clusterrole=cluster-admin --serviceaccount=default:default > /dev/null 2>&1
     error_code=$?
