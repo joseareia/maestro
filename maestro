@@ -13,7 +13,7 @@ BOLD="\e[1m"
 ULINE="\e[4m"
 RESET="\e[0m"
 
-VERSION="1.2.1"
+VERSION="1.3.0"
 
 help() {
     cat << "EOF"
@@ -38,6 +38,7 @@ EOF
     echo -e "  ${GREEN}list${RESET}\t\t\t\t List all the commands and usefull information"
     echo -e "  ${GREEN}master${RESET}\t\t\t Create a k3s master node with a given name"
     echo -e "  ${GREEN}worker${RESET}\t\t\t Create a k3s worker node with a given name, master node address and token"
+    echo -e "  ${GREEN}proxy${RESET}\t\t\t\t Create a proxy server or application-level gateway between localhost and the Kubernetes API server"
 }
 
 about() {
@@ -57,9 +58,12 @@ permissions=false
 master_token=false
 master_flag=false
 worker_flag=false
+proxy_flag=false
 name=""                 # For both "master" and "worker" commands
 ip=""                   # For the "worker" command
 token=""                # For the "worker" command
+port="8001"             # For the "proxy" command
+address="127.0.0.1"     # For the "proxy" command
 
 # Process options
 while [[ $# -gt 0 ]]; do
@@ -75,6 +79,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         'worker')
             worker_flag=true
+            ;;
+        'proxy')
+            proxy_flag=true
             ;;
         --help | -h)
             help
@@ -103,6 +110,14 @@ while [[ $# -gt 0 ]]; do
             shift
             token=$1        # For the "worker" command
             ;;
+        --port)
+            shift
+            port=$1         # For the "proxy" command
+            ;;
+        --address | -a)
+            shift
+            address=$1      # For the "proxy" command
+            ;;
         *)
             echo -e "\n  ${RED_BG} ERROR ${RESET} The option \"$1\" does not exist. \n" >&2 && exit 1
             ;;
@@ -110,7 +125,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-# Creates a new master node: ./maestro master [-n | --name NAME]
+# Creates a new master node: maestro master [-n | --name NAME]
 if $master_flag; then
     if [ ! -z "$name" ]; then
         if [ ! "$UID" -eq 0 ]; then
@@ -134,7 +149,7 @@ if $master_flag; then
     fi
 fi
 
-# Creates a new master node: ./maestro worker [-n | --name NAME] [-i | --ip IP ADDRESS] [-t | --token TOKEN]
+# Creates a new master node: maestro worker [-n | --name NAME] [-i | --ip IP ADDRESS] [-t | --token TOKEN]
 if $worker_flag; then
     if [ -z "$name" ]; then
         echo -e "\n  ${RED_BG} ERROR ${RESET} You must provide a name to the worker node. \n" >&2
@@ -170,7 +185,21 @@ if $worker_flag; then
     fi
 fi
 
-# Retrieves the master token: ./maestro [-t | --master_token]
+# Creates a proxy server: maestro proxy [-a | --address ADDRESS] [--port PORT]
+if $proxy_flag; then
+    kubectl proxy --port=$port --address=$address > /dev/null 2>&1 &
+    error_code=$?
+
+    if [ $error_code -ne 0  ]; then
+        echo -ne "\n  ${RED_BG} ERROR ${RESET} There was an error while creating the proxy server. (Code: $error_code)" >&2 ; echo -ne '\n'
+        echo -e "  ${GREEN}proxy [-a|--address ADDRESS] [--port PORT]\n"
+        exit 1
+    else
+        echo -ne "\n  ${BLUE_BG} INFO ${RESET} The proxy server was created with success. Serving on: http://$address:$port" >&2 ; echo -ne '\n\n'
+    fi
+fi
+
+# Retrieves the master token: maestro [-t | --master_token]
 if $master_token; then
     if [ ! "$UID" -eq 0 ]; then
         echo -e "\n  ${RED_BG} ERROR ${RESET} You must run this option with sudo.\n" >&2 ; exit 1
@@ -180,6 +209,7 @@ if $master_token; then
 
         if [ $error_code -ne 0  ]; then
             echo -ne "\n  ${RED_BG} ERROR ${RESET} There was an error while retrieving the master token. (Code: $error_code)" >&2 ; echo -ne '\n\n' ; exit 1
+            echo -e "  ${GREEN}worker [-n|--name NAME] [-i|--ip IP ADDRESS] [-t|--token TOKEN]\n"
         else
             MASTERTOKEN=$(cat /var/lib/rancher/k3s/server/node-token)
             echo -ne "\n  ${BLUE_BG} INFO ${RESET} Master token: $MASTERTOKEN" >&2 ; echo -ne '\n\n'
@@ -187,7 +217,7 @@ if $master_token; then
     fi
 fi
 
-# Creates a new master token: ./maestro [-c | --create_token]
+# Creates a new master token: maestro [-c | --create_token]
 if $create_token; then
     kubectl > /dev/null 2>&1
     error_code=$?
@@ -232,7 +262,7 @@ EOF
     fi
 fi
 
-# Retrieve the master token for API access: ./maestro [-r | --retrieve_token]
+# Retrieve the master token for API access: maestro [-r | --retrieve_token]
 if $retrieve_token; then
     kubectl get secret default-token -o jsonpath='{.data.token}' > /dev/null 2>&1
     error_code=$?
@@ -245,7 +275,7 @@ if $retrieve_token; then
     fi
 fi
 
-# Grant permissions for API access: ./maestro [-p | --permissions]
+# Grant permissions for API access: maestro [-p | --permissions]
 if $permissions; then
     kubectl create clusterrolebinding default-admin --clusterrole=cluster-admin --serviceaccount=default:default > /dev/null 2>&1
     error_code=$?
