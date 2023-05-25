@@ -49,6 +49,7 @@ In the section below you can find all the options and available commands that Ma
 - `list` to list all the commands and useful information.
 - `master` to create a k3s master node with a given name.
 - `worker` to create a k3s worker node with a given name, master node address, and token.
+- `proxy` to create a proxy server or application-level gateway between localhost and the Kubernetes API server.
 
 Maestro simplifies Kubernetes management by providing an intuitive interface to perform common tasks. It automates repetitive operations and helps you save time and effort in administering your Kubernetes cluster. With Maestro, you can focus on developing and deploying applications without getting bogged down by complex Kubernetes configurations.
 
