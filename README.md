@@ -16,8 +16,8 @@ Before using Maestro, ensure that you have the following:
 You can install this script globally in your machine by doing the following. In this example we use the latest version of the script.
 
 ```bash
-  wget https://github.com/joseareia/maestro/archive/refs/tags/v1.2.1.tar.gz
-  tar -xvf v1.2.1.tar.gz ; cd maestro-1.2.1
+  wget https://github.com/joseareia/maestro/archive/refs/tags/v1.3.0.tar.gz
+  tar -xvf v1.3.0.tar.gz ; cd maestro-1.3.0
   chmod +x maestro
   mv maestro /usr/local/bin/maestro
 ```
